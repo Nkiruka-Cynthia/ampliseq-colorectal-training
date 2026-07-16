@@ -1,0 +1,13 @@
+.DS_Store
+.nextflow/
+.nextflow.log*
+results/
+work/
+outputs/
+.vscode/
+*.swp
+*.swo
+*~
+.idea/
+*.iml
+.devcontainer/.devcontainer.json.local
