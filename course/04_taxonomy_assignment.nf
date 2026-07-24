@@ -52,7 +52,7 @@ workflow {
         
         SILVA (https://www.arb-silva.de/)
         • Most comprehensive: 600,000+ sequences
-        • Default in ampliseq
+        • Used in this training via --dada_ref_taxonomy silva=138
         • Regular updates (v138, v132, etc.)
         • Recommended for most studies
         
@@ -94,22 +94,31 @@ workflow {
     """)
 
     println("""
-        Expected Output for CRC vs Healthy Microbiome
-        ─────────────────────────────────────────────
+        What Published CRC Microbiome Studies Typically Find
+        ─────────────────────────────────────────────────────
+        (This reflects the wider scientific literature on CRC and the
+         gut microbiome, NOT a promise of what today's live demo run
+         will show — today's run uses the official nf-core/ampliseq
+         test dataset, so treat the taxa below as background context,
+         not an expected result.)
         
-        HEALTHY CONTROLS (enriched taxa):
+        HEALTHY CONTROLS (often enriched):
         • Faecalibacterium prausnitzii (Firmicutes) — anti-inflammatory
         • Roseburia species (Firmicutes) — butyrate producer
         • Akkermansia muciniphila — mucus layer regulation
         
-        CRC PATIENTS (enriched taxa):
+        CRC PATIENTS (often enriched):
         • Fusobacterium nucleatum — pro-inflammatory
         • Porphyromonas gingivalis (Bacteroides)
-        • Reduced: Faecalibacterium, Roseburia
+        • Often reduced: Faecalibacterium, Roseburia
         
         Why this matters:
         → DADA2 + taxonomy = identify which specific bacteria
         → Compare: dysbiosis markers in disease vs healthy
         → Generate: diversity metrics (alpha/beta)
+        
+           To see this kind of comparison on your OWN data, run the
+           pipeline with your real samplesheet + metadata (see README.md)
+           and inspect results/abundance_tables/taxonomy.tsv.
     """)
 }

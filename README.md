@@ -3,17 +3,17 @@
 <div align="center">
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Nkiruka-Cynthia/ampliseq-colorectal-training)
-[![nf-core](https://img.shields.io/badge/nf--core-ampliseq%202.10.0-brightgreen)](https://nf-co.re/ampliseq)
+[![nf-core](https://img.shields.io/badge/nf--core-ampliseq%202.18.0-brightgreen)](https://nf-co.re/ampliseq)
 [![Nextflow](https://img.shields.io/badge/nextflow-%E2%89%A526.04-blue)](https://www.nextflow.io/)
 [![Docker](https://img.shields.io/badge/container-Docker-2496ED)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**A hands-on 16S microbiome practical for the STaiMIC Nextflow Training Program**  
-*From raw 16S reads to colorectal cancer microbiome profiles - powered by nf-core/ampliseq 2.10.0*
+**A hands-on 16S microbiome practical for the STaiMIC Nextflow Training Program**
+*From raw 16S reads to ASVs and taxonomy — powered by nf-core/ampliseq 2.18.0*
 
 ---
 
-[Open in Codespaces](#-quick-start) · [Biological Story](#-biological-story) · [Results Guide](#️-understanding-your-results)
+[Quick Start](#quick-start) · [Biological Story](#biological-story) · [Repository Structure](#repository-structure)
 
 </div>
 
@@ -21,37 +21,39 @@
 
 ## What is this?
 
-This repository is the **hands-on practical component** of the STaiMIC Nextflow Bioinformatics Training Program (Session 3, [Date]). It runs the full [nf-core/ampliseq](https://nf-co.re/ampliseq) pipeline for 16S rRNA gene amplicon sequencing analysis.
+This repository is the **hands-on practical component** of the STaiMIC Nextflow Bioinformatics Training Program (Session 3). It runs the real [nf-core/ampliseq](https://nf-co.re/ampliseq) pipeline for 16S rRNA gene amplicon sequencing analysis.
 
 Learn how to:
 - Parse amplicon sequencing metadata into Nextflow channels
 - Quality-control raw 16S reads with FastQC
 - Remove primer sequences with Cutadapt
 - Infer Amplicon Sequence Variants (ASVs) with DADA2
-- Assign taxonomy using SILVA reference database
-- Calculate alpha/beta diversity and generate microbiome profiles
+- Assign taxonomy using the SILVA reference database
 
-No local installation needed. No HPC required. One command runs everything.
+No local installation needed. No HPC required. One command runs everything:
 
 ```bash
 bash main.sh
 ```
 
+For the full step-by-step walkthrough, see **[GETTING_STARTED.md](GETTING_STARTED.md)**. For Nextflow/ampliseq syntax and parameter details, see **[course/REFERENCE.md](course/REFERENCE.md)**.
+
 ---
 
 ## Biological Story
 
-We analyse **four 16S samples from two patient groups** — a design that lets us demonstrate both healthy microbiota and disease-associated dysbiosis in a single pipeline run.
+The teaching narrative for this practical is a small **four-sample colorectal cancer (CRC) vs. healthy gut microbiome** comparison — the kind of design you'd use to explore disease-associated dysbiosis.
 
-| Sample | Patient | Status | Clinical Question |
-|--------|---------|--------|-------------------|
+| Sample | Group | Status | Clinical Question |
+|--------|-------|--------|-------------------|
 | `healthy_1` | Control 1 | Healthy (0) | What taxa dominate a healthy gut microbiota? |
 | `healthy_2` | Control 2 | Healthy (0) | Are healthy microbiota reproducible across individuals? |
 | `crc_patient_1` | CRC Patient 1 | Disease (1) | Which taxa are depleted/enriched in colorectal cancer? |
-| `crc_patient_2` | CRC Patient 2 | Disease (1) | How does CRC microbiome differ from healthy controls? |
+| `crc_patient_2` | CRC Patient 2 | Disease (1) | How does the CRC microbiome differ from healthy controls? |
 
-> **Why does this design matter?**  
-> By comparing `status=0` (healthy) with `status=1` (CRC disease), ampliseq runs **comparative microbiome analysis** — showing both alpha diversity (within-sample richness) and beta diversity (between-sample differences) to highlight disease-associated dysbiosis in real time.
+This design (`data/samplesheet.csv` + `data/Metadata.tsv`) is what you'd use on **your own real FASTQ data** — see the reference command in `course/REFERENCE.md`.
+
+> ⚠️ **Important:** today's live demo (`bash main.sh`) runs the **official nf-core/ampliseq test dataset**, not these four samples — this avoids downloading gigabytes of FASTQ data during class. The pipeline, parameters, and steps are identical either way; only the input data differs. Don't expect the live run's actual output to show a healthy-vs-CRC biological signal — for that, run the pipeline on real data using the reference command.
 
 ---
 
@@ -59,11 +61,11 @@ We analyse **four 16S samples from two patient groups** — a design that lets u
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                    nf-core/ampliseq 2.10.0                     │
+│                    nf-core/ampliseq 2.18.0                     │
 │              16S Microbiome Profiling Workflow                 │
 └────────────────────────────────────────────────────────────────┘
 
-  FASTQ reads (4 samples, paired-end)
+  FASTQ reads (paired-end)
        │
        ▼
    ┌─────────┐
@@ -86,86 +88,73 @@ We analyse **four 16S samples from two patient groups** — a design that lets u
    │  DADA2 + SILVA   │        Output: feature × taxa table
    └──────────────────┘
        │
-       ├──────────────────────────────────┐
-       ▼                                  ▼
-   ┌──────────────────┐        ┌───────────────────┐
-   │  Alpha Diversity │        │  Beta Diversity   │
-   │  (Richness)      │        │  (Community diff) │
-   │  - Shannon index │        │  - Bray-Curtis   │
-   │  - Chao1 index   │        │  - PCoA plots    │
-   │  - Rarefaction   │        │  - PERMANOVA      │
-   └──────────────────┘        └───────────────────┘
-       │                                  │
-       └──────────────┬───────────────────┘
-                      ▼
-              ┌──────────────┐
-              │  MultiQC     │  ──▶  QC report + diversity summary
-              └──────────────┘
-              ┌──────────────┐
-              │ Phyloseq /   │  ──▶  R objects for downstream analysis
-              │ TreeSE       │
-              └──────────────┘
-
-    Output: feature table, taxa profiles, diversity indices, 
-            abundance plots, MultiQC report
+       ▼
+   ┌──────────────┐
+   │  MultiQC     │  ──▶  Aggregated QC + summary report
+   └──────────────┘
 ```
+
+QIIME2's secondary analysis branch (classifier training, barplots, alpha/beta diversity, differential abundance) also exists in the pipeline, but is **skipped in the live demo** via `--skip_qiime` — see `main.sh` for why and how to re-enable it outside class time constraints.
 
 ---
 
 ## Quick Start
 
-### Step 1 — Open in GitHub Codespaces
-
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Nkiruka-Cynthia/ampliseq-colorectal-training)
-
-Click the badge above or navigate to:
-```
-Code → Codespaces → Create codespace on main
-```
-
-Wait ~3 minutes for the environment to set up automatically. You will see:
-```
-✅ Setup complete! You are ready to run: bash main.sh
-```
-
-### Step 2 — Understand the samplesheet (2–3 min)
-
-```bash
-nextflow run course/01_samplesheet.nf
-```
-
-### Step 3 — Explore pipeline concepts (optional, instant)
-
-```bash
-nextflow run course/02_primer_trimming.nf        # Cutadapt concepts
-nextflow run course/03_asv_inference.nf          # DADA2 ASV concepts  
-nextflow run course/04_taxonomy_assignment.nf    # Taxonomic classification
-```
-
-### Step 4 — Run the full pipeline (~25 min)
-
 ```bash
 bash main.sh
 ```
 
-### Step 5 — Explore results
+That's it — see **[GETTING_STARTED.md](GETTING_STARTED.md)** for the full setup walkthrough (Codespace setup, optional lessons, exploring results, troubleshooting).
 
-```bash
-# View all output directories
-ls results/
+---
 
-# Inspect the ASV table (feature × sample matrix)
-cat results/abundance_tables/feature_table.tsv | head -20
+## How Input Data Works
 
-# View taxonomic assignments
-cat results/abundance_tables/taxonomy.tsv | head -20
+Ampliseq needs two separate files: a **samplesheet** (tells it where your FASTQ files are) and a **metadata** file (tells it how to group samples for comparison).
 
-# Check alpha diversity metrics
-cat results/diversity_analysis/alpha_diversity.tsv
-
-# Open QC report (VS Code → right-click → Open with Live Server)
-results/multiqc/multiqc_report.html
+**`data/samplesheet.csv`** — required columns: `sampleID,forwardReads,reverseReads`
+```csv
+sampleID,forwardReads,reverseReads
+healthy_1,data/fastq/healthy_1_1.fastq.gz,data/fastq/healthy_1_2.fastq.gz
+healthy_2,data/fastq/healthy_2_1.fastq.gz,data/fastq/healthy_2_2.fastq.gz
+crc_patient_1,data/fastq/crc_patient_1_1.fastq.gz,data/fastq/crc_patient_1_2.fastq.gz
+crc_patient_2,data/fastq/crc_patient_2_1.fastq.gz,data/fastq/crc_patient_2_2.fastq.gz
 ```
+
+**`data/Metadata.tsv`** — tab-separated, first column must be `ID` and match `sampleID` exactly:
+```tsv
+ID	condition	status
+healthy_1	healthy	0
+healthy_2	healthy	0
+crc_patient_1	disease	1
+crc_patient_2	disease	1
+```
+
+**Running on your OWN data:**
+```bash
+nextflow run nf-core/ampliseq -r 2.18.0 \
+    -profile docker \
+    --input data/samplesheet.csv \
+    --metadata data/Metadata.tsv \
+    --metadata_category status \
+    --FW_primer GTGYCAGCMGCCGCGGTAA \
+    --RV_primer GGACTACNVGGGTWTCTAAT \
+    --dada_ref_taxonomy silva=138 \
+    --outdir results
+```
+
+**Running today's live demo (official test dataset, class-time-friendly):**
+```bash
+nextflow run nf-core/ampliseq \
+    -r 2.18.0 \
+    -profile test,docker \
+    --outdir results \
+    --skip_qiime \
+    -resume
+```
+(this is exactly what `bash main.sh` runs for you)
+
+Full parameter reference, output file structure, and troubleshooting: **[course/REFERENCE.md](course/REFERENCE.md)**.
 
 ---
 
@@ -174,85 +163,26 @@ results/multiqc/multiqc_report.html
 ```
 ampliseq-colorectal-training/
 │
-├──  README.md                    This file
-├──  GETTING_STARTED.md           Detailed student setup guide
-├──  main.sh                      ← STUDENTS RUN THIS
-├──  nextflow.config              Pipeline configuration
+├── README.md                    This file
+├── GETTING_STARTED.md           Step-by-step student setup guide
+├── main.sh                      ← STUDENTS RUN THIS
+├── nextflow.config              Pipeline resource/profile configuration
 │
 ├── data/
-│   └── samplesheet.csv           4 × 16S samples (2 healthy, 2 CRC)
+│   ├── samplesheet.csv           Teaching example: 4 × 16S samples (2 healthy, 2 CRC)
+│   └── Metadata.tsv               Teaching example: sample grouping metadata
 │
 ├── course/
-│   ├── 01_samplesheet.nf         Lesson 1: samplesheet structure
+│   ├── 01_samplesheet.nf         Lesson 1: samplesheet + metadata structure
 │   ├── 02_primer_trimming.nf     Lesson 2: Cutadapt QC concepts
 │   ├── 03_asv_inference.nf       Lesson 3: DADA2 ASV generation
 │   ├── 04_taxonomy_assignment.nf Lesson 4: taxonomy classification
-│   └── REFERENCE.md              Nextflow + Ampliseq syntax quick-ref
-│
-├── examples/
-│   ├── feature_table.tsv         Example ASV abundance table
-│   ├── taxonomy.tsv              Example taxonomic assignments
-│   └── diversity_summary.html     Example diversity analysis output
+│   └── REFERENCE.md              Nextflow + Ampliseq syntax & parameter reference
 │
 └── .devcontainer/
     ├── devcontainer.json         Codespaces environment config
-    └── post-install.sh           Auto-setup: Nextflow + Ampliseq + test FASTQs
+    └── post-install.sh           Auto-setup: Nextflow + pre-cached ampliseq pipeline
 ```
-
----
-
-## Understanding Your Results
-
-After `bash main.sh` completes, your `results/` folder will contain:
-
-```
-results/
-├── multiqc/
-│   └── multiqc_report.html          START HERE — single QC dashboard
-│
-├── quality_control/
-│   ├── fastqc/                      Per-sample FASTQC reports
-│   ├── cutadapt/                    Primer trimming statistics
-│   └── dada2/                       DADA2 denoising logs
-│
-├── abundance_tables/
-│   ├── feature_table.tsv            ASV abundance (samples × ASVs)
-│   ├── taxonomy.tsv                 Taxonomic assignments per ASV
-│   └── dada2_stats.tsv              DADA2 read counts per sample
-│
-├── diversity_analysis/
-│   ├── alpha_diversity.tsv          Shannon, Chao1 indices
-│   ├── beta_diversity/
-│   │   ├── bray_curtis_distance.tsv Sample-to-sample distances
-│   │   ├── pcoa_plot.html           Interactive PCoA plot
-│   │   └── permanova_results.txt    Statistical test for differences
-│   └── rarefaction_curves/          Alpha rarefaction plots
-│
-├── taxonomic_profiles/
-│   ├── stacked_barplots/            Abundance by phylum/genus
-│   ├── heatmaps/                    Relative abundance heatmaps
-│   └── healthy_vs_crc.html          Disease-specific composition
-│
-├── phyloseq_objects/
-│   └── phyloseq.Rdata              R phyloseq object for advanced analysis
-│
-└── pipeline_info/
-    ├── timeline.html                Task execution timeline
-    ├── report.html                  Resource usage report
-    └── trace.txt                    Per-task resource trace
-```
-
----
-
-## 30-Minute Practical Timeline
-
-| Time | Activity | Command | What to watch |
-|------|----------|---------|---------------|
-| 0–3 min | Codespace setup | Auto | `✅ Setup complete!` message |
-| 3–6 min | Samplesheet lesson | `nextflow run course/01_samplesheet.nf` | 4 samples printed |
-| 6–8 min | Launch pipeline | `bash main.sh` | Task list appears |
-| 8–25 min | Pipeline running | — | Tasks completing live (trimming → DADA2 → taxonomy) |
-| 25–30 min | Explore results + Q&A | `ls results/` | MultiQC report + diversity plots |
 
 ---
 
@@ -260,12 +190,12 @@ results/
 
 | Parameter | Value | Reason |
 |-----------|-------|--------|
-| Ampliseq version | 2.10.0 | Compatible with Nextflow ≥25.10 |
-| Region | 16S V4 (default) | Universal bacterial marker gene |
-| Taxonomy DB | SILVA 138 | Well-curated reference database |
-| Profile | `docker` | Reliable container execution |
-| Tools | DADA2 + QIIME2 | Denoising + diversity analysis |
-| Resource limit | 2 CPU / 8GB RAM | Codespaces free tier safe |
+| Ampliseq version | 2.18.0 | Compatible with modern Nextflow (≥26); older releases fail to parse due to a strict-syntax config incompatibility |
+| Live demo dataset | Official nf-core/ampliseq test data (`-profile test`) | No multi-GB download needed during class |
+| Region | 16S V4 | Universal bacterial marker gene |
+| Taxonomy | DADA2's built-in classifier (SILVA) | QIIME2's separate classifier training is skipped for time (see `--skip_qiime` in `main.sh`) |
+| Container | Docker | Reliable, reproducible execution |
+| Resource limit | 2 CPU / 10GB RAM / 40 min per process | Sized for a 4-core/16GB local laptop or Codespaces; see `nextflow.config` |
 
 ---
 
@@ -284,13 +214,13 @@ results/
 
 ## Questions?
 
-See **[GETTING_STARTED.md](GETTING_STARTED.md)** for detailed setup help or refer to the [nf-core/ampliseq documentation](https://nf-co.re/ampliseq).
+See **[GETTING_STARTED.md](GETTING_STARTED.md)** for setup help, **[course/REFERENCE.md](course/REFERENCE.md)** for syntax/parameters, or the [nf-core/ampliseq documentation](https://nf-co.re/ampliseq).
 
 ---
 
 <div align="center">
 
-Built for the **STaiMIC Nextflow Training Program**  
+Built for the **STaiMIC Nextflow Training Program**
 by [Nkiruka Cynthia Efenji](https://github.com/Nkiruka-Cynthia) · Nextflow Ambassador · [@Seqera](https://seqera.io)
 
 </div>

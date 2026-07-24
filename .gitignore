@@ -11,3 +11,19 @@ outputs/
 .idea/
 *.iml
 .devcontainer/.devcontainer.json.local
+
+# Pipeline execution reports (regenerated each run)
+timeline.html
+report.html
+trace.txt
+
+# Windows/OS
+Thumbs.db
+
+# Python cache (if any helper scripts run)
+__pycache__/
+*.pyc
+
+# Any real FASTQ data accidentally dropped in (samplesheet paths are
+# teaching examples only — no real files should ever live here)
+data/fastq/

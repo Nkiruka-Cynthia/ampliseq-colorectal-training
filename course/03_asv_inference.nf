@@ -73,14 +73,18 @@ workflow {
     """)
 
     println("""
-        Expected DADA2 Output for Our 4 Samples
-        ──────────────────────────────────────
+        Illustrative DADA2 Output on Real 16S Data
+        ──────────────────────────────────────────
+        (This is a general example, NOT what today's live demo run will
+         show — today's run uses the official nf-core/ampliseq test
+         dataset, which is intentionally small. On real samples like
+         those in data/samplesheet.csv, you'd typically see:)
         
         Input reads per sample:     ~5,000–10,000
         After primer trim:          ~4,500–9,000 (10% loss acceptable)
         After DADA2:                ~100–500 unique ASVs
         
-        Feature table (ASV × sample):
+        Feature table (ASV × sample) — illustrative example only:
         ┌─────────┬──────────┬──────────┬──────────┬──────────┐
         │ ASV_ID  │ healthy_1│ healthy_2│crc_pat_1 │crc_pat_2 │
         ├─────────┼──────────┼──────────┼──────────┼──────────┤
@@ -89,5 +93,8 @@ workflow {
         │ ASV_003 │    450   │    520   │   1900   │   2100   │
         │  ...    │   ...    │   ...    │   ...    │   ...    │
         └─────────┴──────────┴──────────┴──────────┴──────────┘
+
+        💡 Check YOUR actual results/abundance_tables/feature_table.tsv
+           after the pipeline run to see real numbers for this dataset.
     """)
 }

@@ -1,0 +1,5 @@
+ID	condition	status
+healthy_1	healthy	0
+healthy_2	healthy	0
+crc_patient_1	disease	1
+crc_patient_2	disease	1

@@ -16,10 +16,8 @@
 
 nextflow.enable.dsl = 2
 
-params {
-    FW_primer = "GTGYCAGCMGCCGCGGTAA"  // 16S V4 forward primer
-    RV_primer = "GGACTACNVGGGTWTCTAAT" // 16S V4 reverse primer
-}
+params.FW_primer = "GTGYCAGCMGCCGCGGTAA"  // 16S V4 forward primer
+params.RV_primer = "GGACTACNVGGGTWTCTAAT" // 16S V4 reverse primer
 
 workflow {
     println("""
@@ -30,7 +28,7 @@ workflow {
         ║  → Primers are PCR artifacts, not biological sequences     ║
         ║  → They confound DADA2 error modeling                      ║
         ║  → Removing them improves ASV quality                      ║
-        ╚═════════════════��═══════════════════════════════════════════╝
+        ╚═════════════════════════════════════════════════════════════╝
     """)
 
     println("\n 16S V4 Region Primers (Caporaso et al., 2011)\n")

@@ -6,29 +6,33 @@
 ```nextflow
 nextflow.enable.dsl = 2
 
-params {
-    input = "data/samplesheet.csv"
-    outdir = "results"
-}
+params.outdir = "results"
 
 workflow {
     // Main workflow logic here
 }
 ```
+Note: don't set `params.input` or pipeline-specific params (like `FW_primer`)
+as global defaults in `nextflow.config` if you also want to run `-profile test`
+— global param defaults override the test profile's own built-in data.
 
-### Reading a CSV file
+### Reading the samplesheet + metadata
+Ampliseq keeps FASTQ file locations and sample grouping in two separate
+files. Here's how you'd read both with plain Nextflow channels:
 ```nextflow
-channel
+// samplesheet.csv: sampleID, forwardReads, reverseReads
+ch_samples = channel
     .fromPath(params.input, checkIfExists: true)
     .splitCsv(header: true)
-    .map { row ->
-        def meta = [
-            sample: row.sample,
-            status: row.status
-        ]
-        [meta, file(row.fastq_1), file(row.fastq_2)]
-    }
-    .view()  // Print to stdout
+    .map { row -> [row.sampleID, file(row.forwardReads), file(row.reverseReads)] }
+
+// Metadata.tsv: ID, condition, status (tab-separated)
+ch_metadata = channel
+    .fromPath(params.metadata, checkIfExists: true)
+    .splitCsv(header: true, sep: '\t')
+    .map { row -> [row.ID, row.condition, row.status] }
+
+ch_samples.join(ch_metadata).view()
 ```
 
 ### Running a process
@@ -63,10 +67,14 @@ ch_samples
 
 ## Ampliseq Parameters
 
-### Required parameters
+### Required parameters (for real data)
 ```bash
 # Input samplesheet
---input "samplesheet.csv"
+--input "data/samplesheet.csv"
+
+# Metadata (optional, but needed for grouped diversity comparisons)
+--metadata "data/Metadata.tsv"
+--metadata_category "status"
 
 # Output directory
 --outdir "results"
@@ -78,8 +86,12 @@ ch_samples
 
 ### Taxonomy databases
 ```bash
-# SILVA (default, recommended)
+# SILVA — used throughout this training
 --dada_ref_taxonomy "silva=138"
+
+# NOTE: as of ampliseq 2.18.0, the pipeline's own DEFAULT changed from
+# SILVA to sbdi-gtdb=R11-RS232-1. We pass silva=138 explicitly above so
+# this training is unaffected either way.
 
 # RDP
 --dada_ref_taxonomy "rdp"
@@ -100,111 +112,131 @@ ch_samples
 ### Output options
 ```bash
 # Skip specific analyses
---skip_diversity true      # Skip alpha/beta diversity
---skip_barplot true        # Skip barplots
---skip_asv_plots true      # Skip ASV abundance plots
+--skip_diversity_indices true   # Skip alpha/beta diversity
+--skip_barplot true              # Skip barplots
 ```
 
 ---
 
 ## Samplesheet Format
 
-### CSV columns required:
+Ampliseq 2.18.0 requires exactly these column headers (comma, tab, or YAML):
+
+### Required columns:
 ```
-sample,condition,status,fastq_1,fastq_2
+sampleID,forwardReads,reverseReads
 ```
 
-### Example:
+### Example (`data/samplesheet.csv`):
 ```csv
-sample,condition,status,fastq_1,fastq_2
-healthy_1,healthy,0,data/fastq/healthy1_R1.fastq.gz,data/fastq/healthy1_R2.fastq.gz
-healthy_2,healthy,0,data/fastq/healthy2_R1.fastq.gz,data/fastq/healthy2_R2.fastq.gz
-crc_patient_1,disease,1,data/fastq/crc1_R1.fastq.gz,data/fastq/crc1_R2.fastq.gz
-crc_patient_2,disease,1,data/fastq/crc2_R1.fastq.gz,data/fastq/crc2_R2.fastq.gz
+sampleID,forwardReads,reverseReads
+healthy_1,data/fastq/healthy_1_1.fastq.gz,data/fastq/healthy_1_2.fastq.gz
+healthy_2,data/fastq/healthy_2_1.fastq.gz,data/fastq/healthy_2_2.fastq.gz
+crc_patient_1,data/fastq/crc_patient_1_1.fastq.gz,data/fastq/crc_patient_1_2.fastq.gz
+crc_patient_2,data/fastq/crc_patient_2_1.fastq.gz,data/fastq/crc_patient_2_2.fastq.gz
 ```
 
 ### Column definitions:
-- **sample**: Unique sample identifier
-- **condition**: Group label (e.g., "healthy", "disease")
-- **status**: Binary status (0 = healthy/control, 1 = disease/case)
-- **fastq_1**: Path to forward reads (R1)
-- **fastq_2**: Path to reverse reads (R2)
+- **sampleID**: Unique sample identifier (must start with a letter)
+- **forwardReads**: Path to forward reads (R1)
+- **reverseReads**: Path to reverse reads (R2)
+
+Grouping info (healthy vs. disease) does NOT go in the samplesheet — it
+lives in a separate metadata file (see below).
+
+### Metadata format (`data/Metadata.tsv`)
+
+Metadata follows the QIIME2 spec: tab-separated, first column header
+must be `ID` and match `sampleID` exactly.
+
+```tsv
+ID	condition	status
+healthy_1	healthy	0
+healthy_2	healthy	0
+crc_patient_1	disease	1
+crc_patient_2	disease	1
+```
+
+Passed to the pipeline with `--metadata data/Metadata.tsv` and used for
+group comparisons with `--metadata_category status`.
 
 ---
 
-## Output Directory Structure
+## Output Directory Structure (real ampliseq 2.18.0 output)
 
 ```
 results/
-├── multiqc/                          # QC aggregation
-│   └── multiqc_report.html           # Main QC dashboard
-│
-├── quality_control/
-│   ├── fastqc/                       # Per-sample FASTQC reports
-│   ├── cutadapt/                     # Primer trimming logs
-│   └── dada2/                        # DADA2 denoising stats
-│
-├── abundance_tables/
-│   ├── feature_table.tsv             # ASV × sample counts
-│   ├── taxonomy.tsv                  # Taxonomic assignments
-│   └── dada2_stats.tsv               # Read retention per sample
-│
-├── diversity_analysis/
-│   ├── alpha_diversity.tsv           # Shannon, Chao1, etc.
-│   ├── beta_diversity/
-│   │   ├── bray_curtis_distance.tsv  # Pairwise distances
-│   │   └── pcoa_plot.html            # Interactive PCoA plot
-│   └── rarefaction_curves.html       # Rarefaction analysis
-│
-├── taxonomic_profiles/
-│   ├── stacked_barplots/             # Taxa abundance by level
-│   ├── heatmaps/                     # Relative abundance heatmaps
-│   └── composition_plots/            # Phylum/genus-level plots
-│
-├── phyloseq_objects/
-│   └── phyloseq.Rdata                # R phyloseq object
-│
+├── input/                       # Copy of your samplesheet/metadata
+├── summary_report/
+│   └── summary_report.html      # Overview report, start here
+├── fastqc/                      # Per-sample raw read QC
+├── cutadapt/                    # Primer trimming logs + summary
+├── multiqc/
+│   └── multiqc_report.html      # Aggregated QC dashboard
+├── dada2/
+│   ├── ASV_seqs.fasta           # ASV sequences
+│   ├── ASV_table.tsv            # ASV counts per sample
+│   ├── ASV_tax.*.tsv            # Taxonomic classification (DADA2, default)
+│   └── DADA2_stats.tsv          # Read tracking through DADA2
+├── qiime2/
+│   ├── abundance_tables/
+│   │   └── feature-table.tsv    # Final abundance table
+│   ├── rel_abundance_tables/    # Relative (normalized) abundance
+│   ├── barplot/index.html       # Interactive taxa barplot
+│   ├── alpha-rarefaction/index.html
+│   └── diversity/
+│       ├── alpha_diversity/     # Shannon, Faith's PD, evenness, etc.
+│       └── beta_diversity/      # Bray-Curtis, Jaccard, UniFrac, PCoA
+├── phyloseq/
+│   └── <taxonomy>_phyloseq.rds  # R phyloseq object
+├── overall_summary.tsv          # Read counts through every pipeline step
 └── pipeline_info/
-    ├── timeline.html
-    ├── report.html
-    └── trace.txt
+    ├── execution_timeline.html
+    ├── execution_report.html
+    └── execution_trace.txt
 ```
 
 ---
 
 ## Key Output Files
 
-### feature_table.tsv (ASV abundance)
-```
-ASV_ID      healthy_1  healthy_2  crc_patient_1  crc_patient_2
-ASV_001     2500       2100       1800           1200
-ASV_002     1200       1400       980            750
-ASV_003     450        520        1900           2100
-```
+### dada2/ASV_table.tsv (ASV abundance)
+Rows = ASVs, columns = samples, values = read counts.
 
-### taxonomy.tsv
-```
-ASV_ID     Taxonomy
-ASV_001    d__Bacteria;p__Firmicutes;c__Clostridia;o__Clostridiales;f__Faecalibacterium;g__Faecalibacterium;s__prausnitzii
-ASV_002    d__Bacteria;p__Bacteroidetes;c__Bacteroidia;o__Bacteroidales;f__Bacteroidaceae;g__Bacteroides;s__vulgatus
-```
+### dada2/ASV_tax.*.tsv (taxonomy)
+Tab-separated taxonomic classification per ASV, columns typically
+include Kingdom, Phylum, Class, Order, Family, Genus, Species.
 
-### alpha_diversity.tsv
-```
-Sample         Observed_OTUs  Shannon  Chao1
-healthy_1      250            5.2      275
-healthy_2      245            5.1      268
-crc_patient_1  180            4.1      195
-crc_patient_2  175            4.0      190
-```
+### qiime2/diversity/alpha_diversity/shannon_vector/index.html
+Interactive Shannon diversity index per sample (open in browser).
+
+### qiime2/diversity/beta_diversity/bray_curtis_distance_matrix.tsv
+Pairwise Bray-Curtis distances between samples.
+
+💡 Exact filenames can vary slightly depending on which taxonomy
+classifier and options are active — check `results/summary_report/summary_report.html`
+first, it links to everything else.
 
 ---
 
 ## Common Commands
 
-### Run full pipeline
+### Run today's live demo (official nf-core test dataset)
 ```bash
 bash main.sh
+```
+
+### Run on your OWN data
+```bash
+nextflow run nf-core/ampliseq -r 2.18.0 \
+    -profile docker \
+    --input data/samplesheet.csv \
+    --metadata data/Metadata.tsv \
+    --metadata_category status \
+    --FW_primer GTGYCAGCMGCCGCGGTAA \
+    --RV_primer GGACTACNVGGGTWTCTAAT \
+    --dada_ref_taxonomy silva=138 \
+    --outdir results
 ```
 
 ### Run a specific lesson
@@ -220,14 +252,17 @@ bash main.sh
 
 ### View results
 ```bash
+# Browse the summary report first
+open results/summary_report/summary_report.html
+
 # Browse QC report
 open results/multiqc/multiqc_report.html
 
-# View feature table
-head -20 results/abundance_tables/feature_table.tsv
+# View the ASV table
+head -20 results/dada2/ASV_table.tsv
 
-# Check diversity metrics
-cat results/diversity_analysis/alpha_diversity.tsv
+# Check read-count tracking across the whole pipeline
+cat results/overall_summary.tsv
 ```
 
 ---
@@ -240,14 +275,19 @@ cat results/diversity_analysis/alpha_diversity.tsv
 ### Nextflow not found
 → Install: `curl -fsSL https://get.nextflow.io | bash`
 
+### Config parsing error mentioning `check_max` or "Unexpected input"
+→ Your Nextflow version is too new for an old pipeline release's config
+  syntax. Use `-r 2.18.0` (or later) with nf-core/ampliseq — this training
+  is pinned to 2.18.0 for exactly this reason.
+
 ### Out of memory
-→ Upgrade Codespace to 4-core/16GB
-→ Or reduce --max_cpus in nextflow.config
+→ Reduce `resourceLimits` in `nextflow.config`, or run on a machine/VM
+  with more RAM allocated to Docker/WSL
 
 ### Samplesheet validation fails
-→ Check CSV format (comma-separated, no spaces)
+→ Check column headers are exactly `sampleID,forwardReads,reverseReads`
 → Verify file paths exist
-→ Ensure column names match exactly
+→ Sample IDs must start with a letter, no dashes or dots
 
 ---
 

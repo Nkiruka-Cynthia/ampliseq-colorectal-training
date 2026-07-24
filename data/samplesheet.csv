@@ -1,5 +1,5 @@
-sample,condition,status,fastq_1,fastq_2
-healthy_1,healthy,0,data/fastq/test_1.fastq.gz,data/fastq/test_2.fastq.gz
-healthy_2,healthy,0,data/fastq/test2_1.fastq.gz,data/fastq/test2_2.fastq.gz
-crc_patient_1,disease,1,data/fastq/test_1.fastq.gz,data/fastq/test_2.fastq.gz
-crc_patient_2,disease,1,data/fastq/test2_1.fastq.gz,data/fastq/test2_2.fastq.gz
+sampleID,forwardReads,reverseReads
+healthy_1,data/fastq/healthy_1_1.fastq.gz,data/fastq/healthy_1_2.fastq.gz
+healthy_2,data/fastq/healthy_2_1.fastq.gz,data/fastq/healthy_2_2.fastq.gz
+crc_patient_1,data/fastq/crc_patient_1_1.fastq.gz,data/fastq/crc_patient_1_2.fastq.gz
+crc_patient_2,data/fastq/crc_patient_2_1.fastq.gz,data/fastq/crc_patient_2_2.fastq.gz

@@ -1,71 +1,114 @@
 #!/bin/bash
 
-# post-install.sh — Ampliseq training environment setup
-# Runs automatically in GitHub Codespaces
+# post-install.sh
+# ~~~~~~~~~~~~~~~
+# GitHub Codespaces setup for the Ampliseq 16S training environment.
 
 set -e
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  Ampliseq 16S Training — Codespace Setup                       ║"
+echo "║  Ampliseq 16S Training — Codespace Setup                      ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
+###############################################################################
 # Update system
-echo "[1/5] Updating system packages..."
+###############################################################################
+
+echo "[1/4] Updating system packages..."
+
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl wget git openjdk-11-jre-headless > /dev/null 2>&1
 
+apt-get install -y -qq \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    openjdk-11-jre-headless \
+    > /dev/null 2>&1
+
+###############################################################################
 # Install Nextflow
-echo "[2/5] Installing Nextflow..."
-if ! command -v nextflow &> /dev/null; then
+###############################################################################
+
+echo "[2/4] Installing Nextflow..."
+
+if ! command -v nextflow >/dev/null 2>&1; then
+
     mkdir -p ~/.nextflow/bin
+
     cd ~/.nextflow/bin
+
     curl -fsSL https://get.nextflow.io | bash > /dev/null 2>&1
+
     chmod +x nextflow
+
     mv nextflow /usr/local/bin/
-    cd - > /dev/null
+
+    cd - >/dev/null
+
     echo "✓ Nextflow installed: $(nextflow -version 2>&1 | head -1)"
+
 else
+
     echo "✓ Nextflow already installed"
+
 fi
 
-# Install/pull ampliseq pipeline
-echo "[3/5] Downloading nf-core/ampliseq..."
-mkdir -p ~
-if [ ! -d "$HOME/ampliseq" ]; then
-    nextflow pull nf-core/ampliseq -r 2.10.0 > /dev/null 2>&1
-    echo "✓ Ampliseq pipeline ready"
+###############################################################################
+# Pre-warm nf-core/ampliseq pipeline cache
+###############################################################################
+# NOTE: We do NOT git clone this to a fixed path anymore. main.sh runs
+# `nextflow run nf-core/ampliseq -r 2.18.0`, and Nextflow resolves that
+# by name from its own asset cache (~/.nextflow/assets/). Pulling here
+# just warms that cache ahead of time so the live demo doesn't stall on
+# a first-time download. Version pinned to 2.18.0 to match main.sh —
+# older releases (like 2.10.0) fail to parse on newer Nextflow versions
+# due to a strict-syntax config incompatibility.
+
+echo "[3/4] Pre-downloading nf-core/ampliseq (v2.18.0)..."
+
+if ! nextflow list 2>/dev/null | grep -q "nf-core/ampliseq"; then
+
+    nextflow pull nf-core/ampliseq -r 2.18.0 > /dev/null 2>&1
+
+    echo "✓ Ampliseq pipeline cached"
+
 else
-    echo "✓ Ampliseq pipeline already present"
+
+    echo "✓ Ampliseq pipeline already cached"
+
 fi
 
-# Create test FASTQ files (minimal, for demo purposes)
-echo "[4/5] Creating test data..."
-mkdir -p data/fastq
-if [ ! -f "data/fastq/test_1.fastq.gz" ]; then
-    # Create minimal gzipped FASTQ files for testing
-    echo -e "@test_seq_1\nGTGYCAGCMGCCGCGGTAACCACCCACACCCGATACGGATACCCACGGGAAAACTGGAAAC\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" | gzip > data/fastq/test_1.fastq.gz
-    echo -e "@test_seq_1\nGATTAGATACCCTGGTAGTCCACGCCGTAAACAATGTAAGTGCTACCTTGGGTACACATGGCAG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" | gzip > data/fastq/test_2.fastq.gz
-    echo -e "@test_seq_2\nGTGYCAGCMGCCGCGGTAGCCACCCACACCCGATACGGATACCCACGGGAAAACTGGAGACA\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" | gzip >> data/fastq/test_1.fastq.gz
-    echo -e "@test_seq_2\nGATTAGATACCCTGGTAGTCCACGCCGTAAACAATGTAAGTGCTACCTTGGGTACACATGGCCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" | gzip >> data/fastq/test_2.fastq.gz
-    
-    cp data/fastq/test_1.fastq.gz data/fastq/test2_1.fastq.gz
-    cp data/fastq/test_2.fastq.gz data/fastq/test2_2.fastq.gz
-    echo "✓ Test FASTQ files created"
-else
-    echo "✓ Test FASTQ files already exist"
-fi
+###############################################################################
+# Verify installation
+###############################################################################
 
-# Verify setup
-echo "[5/5] Verifying installation..."
+echo "[4/4] Verifying installation..."
+
 echo "✓ Nextflow: $(nextflow -version 2>&1 | head -1)"
 echo "✓ Java: $(java -version 2>&1 | head -1)"
-echo "✓ Docker: $(docker --version 2>&1)"
-echo "✓ Test data: $(ls -lh data/fastq/*.gz 2>/dev/null | wc -l) files"
+
+if command -v docker >/dev/null 2>&1; then
+    echo "✓ Docker: $(docker --version 2>&1)"
+else
+    echo "⚠ Docker not found yet — the docker-in-docker devcontainer feature"
+    echo "  may still be starting. It should be ready by the time you run"
+    echo "  'bash main.sh'; if not, reload the Codespace window."
+fi
+
+###############################################################################
+# Finished
+###############################################################################
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════════"
-echo "✅ Setup complete! You are ready to run: bash main.sh"
+echo "✅ Setup complete!"
+echo ""
+echo "Run the practical with:"
+echo ""
+echo "    bash main.sh"
+echo ""
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
